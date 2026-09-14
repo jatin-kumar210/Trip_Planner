@@ -1,6 +1,6 @@
 ![image alt](https://github.com/jatin-kumar210/RouteMind/blob/5da170122302069d0cc770bd9f2e154ec3f504c0/tripplan.png)
 <div align="center">
-NOTE:API kEYS ARE NOT runnAble on STREAMLIT I perform it ON MY SERVER!!!
+NOTE:API KEYS ARE NOT RUNNABLE ON STREAMLIT I perform it ON MY SERVER!!!
 # 🧭 RouteMind
 live:https://routemind-bninjlpwyq5xkhfmrdod2c.streamlit.app/
 ### AI-Powered Travel Planning & Journey Assistant
