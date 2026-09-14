@@ -1,8 +1,11 @@
-@"
 .env
-.venv/
+.env.*
+.streamlit/secrets.toml
+
 venv/
+.venv/
 __pycache__/
 *.pyc
-.streamlit/secrets.toml
-"@ | Out-File -Encoding utf8 .gitignore
+
+.DS_Store
+Thumbs.db
