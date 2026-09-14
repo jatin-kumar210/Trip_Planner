@@ -256,86 +256,44 @@ def normalize_list(data):
     if data is None:
         return []
 
-    # Already list
     if isinstance(data, list):
         return data
 
-    # Tuple
     if isinstance(data, tuple):
         return list(data)
 
-    # Dictionary
-    if isinstance(data, dict):
-
-        # ----------------------------------------------------
-        # DIRECT LIST KEYS
-        # ----------------------------------------------------
-
-        for key in [
-            "hotels",
-            "hotel",
-            "items",
-            "places",
-            "flights",
-            "trains",
-            "buses",
-            "trips",
-            "results",
-        ]:
-
-            value = data.get(key)
-
-            if isinstance(value, list):
-                return value
-
-        # ----------------------------------------------------
-        # NESTED DATA
-        # Example:
-        #
-        # {
-        #   "data": {
-        #       "trips": [...]
-        #   }
-        # }
-        # ----------------------------------------------------
-
-        for key in [
-            "data",
-            "response",
-            "result",
-        ]:
-
-            value = data.get(key)
-
-            if isinstance(value, dict):
-
-                nested = normalize_list(value)
-
-                if nested:
-                    return nested
-
-        # ----------------------------------------------------
-        # SINGLE OBJECT
-        # ----------------------------------------------------
-
-        if any(
-            key in data
-            for key in [
-                "name",
-                "price",
-                "fare",
-                "fare_min",
-                "fareMin",
-                "operator",
-                "trip_id",
-                "train_name",
-                "airline",
-            ]
-        ):
-
-            return [data]
-
+    if not isinstance(data, dict):
         return []
+
+    # Common direct list containers used by the APIs.
+    for key in [
+        "hotels", "hotel", "items", "places",
+        "flights", "trains", "buses", "trips", "results",
+        "content", "records", "options", "routes"
+    ]:
+        value = data.get(key)
+        if isinstance(value, list):
+            return value
+
+    # Common nested response wrappers.
+    for key in ["data", "response", "result", "body"]:
+        value = data.get(key)
+        if isinstance(value, (dict, list, tuple)):
+            nested = normalize_list(value)
+            if nested:
+                return nested
+
+    # Treat one API object as a single record.
+    if any(
+        key in data
+        for key in [
+            "name", "price", "amount", "fare", "fare_min",
+            "fareMin", "fare_max", "fareMax", "operator",
+            "trip_id", "tripId", "train_name", "train_number",
+            "airline", "flight_id", "bus_type", "busType"
+        ]
+    ):
+        return [data]
 
     return []
 
@@ -391,7 +349,7 @@ def show_destination_gallery(destination):
 
                 st.image(
                     image,
-                    use_container_width=True
+                    width="stretch"
                 )
 
             except Exception:
@@ -427,226 +385,120 @@ def hotel_price(hotel):
         return None
 
     for key in [
-        "price",
-        "price_per_night",
-        "nightly_price",
-        "amount",
-        "cost",
+        "price", "price_per_night", "nightly_price",
+        "amount", "cost"
     ]:
-
-        value = get_number(
-            hotel.get(key)
-        )
-
+        value = get_number(hotel.get(key))
         if value is not None:
             return value
 
     return None
 
 
-def extract_hotels_for_app(
-    raw_data,
-    hotel_budget
-):
+def extract_hotels_for_app(raw_data, hotel_budget):
+    """Convert either raw Tavily response or an already-clean list into hotel records."""
 
     extracted_hotels = []
 
-    # --------------------------------------------------------
-    # RAW TAVILY RESPONSE
-    # --------------------------------------------------------
-
+    # Raw Tavily response: {"results": [...]}
     if isinstance(raw_data, dict):
-
-        raw_results = raw_data.get(
-            "results",
-            []
-        )
-
+        raw_results = raw_data.get("results", [])
         if isinstance(raw_results, list):
-
             for result in raw_results:
-
-                if not isinstance(
-                    result,
-                    dict
-                ):
+                if not isinstance(result, dict):
                     continue
-
                 try:
-
-                    hotels = extract_hotels_from_result(
-                        result
+                    extracted_hotels.extend(
+                        extract_hotels_from_result(result) or []
                     )
-
-                    if hotels:
-
-                        extracted_hotels.extend(
-                            hotels
-                        )
-
                 except Exception:
                     continue
 
-    # --------------------------------------------------------
-    # ALREADY CLEAN HOTEL LIST
-    # --------------------------------------------------------
+        # In case another wrapper contains the hotel response.
+        if not extracted_hotels:
+            nested = normalize_list(raw_data)
+            if nested and nested != [raw_data]:
+                raw_data = nested
 
-    elif isinstance(raw_data, list):
-
+    # Already-clean list.
+    if isinstance(raw_data, (list, tuple)):
         for hotel in raw_data:
-
-            if not isinstance(
-                hotel,
-                dict
-            ):
-                continue
-
-            if hotel.get("name"):
-
-                extracted_hotels.append(
-                    hotel
-                )
+            if isinstance(hotel, dict) and hotel.get("name"):
+                extracted_hotels.append(hotel)
 
     if not extracted_hotels:
         return []
 
-    # --------------------------------------------------------
-    # REMOVE DUPLICATES
-    # --------------------------------------------------------
-
+    # Preserve the hotel.py pipeline behavior.
     try:
-
-        extracted_hotels = remove_duplicates(
-            extracted_hotels
-        )
-
+        extracted_hotels = remove_duplicates(extracted_hotels)
     except Exception:
         pass
 
-    # --------------------------------------------------------
-    # BUDGET FILTER
-    # --------------------------------------------------------
-
     try:
-
         extracted_hotels = filter_by_budget(
-            extracted_hotels,
-            hotel_budget
+            extracted_hotels, hotel_budget
         )
-
     except Exception:
-
         extracted_hotels = [
-            hotel
-            for hotel in extracted_hotels
-            if (
-                hotel_price(hotel) is not None
-                and hotel_price(hotel) <= hotel_budget
-            )
+            h for h in extracted_hotels
+            if hotel_price(h) is not None
+            and hotel_price(h) <= hotel_budget
         ]
 
-    # --------------------------------------------------------
-    # SORT
-    # --------------------------------------------------------
-
     try:
-
-        extracted_hotels = sort_by_price(
-            extracted_hotels
-        )
-
+        extracted_hotels = sort_by_price(extracted_hotels)
     except Exception:
-
         extracted_hotels.sort(
-            key=lambda hotel: (
-                hotel_price(hotel) is None,
-                hotel_price(hotel)
-                if hotel_price(hotel) is not None
-                else 999999
+            key=lambda h: (
+                hotel_price(h) is None,
+                hotel_price(h) if hotel_price(h) is not None else 999999
             )
         )
 
     return extracted_hotels
 
 
-def get_hotels_safely(
-    destination,
-    hotel_budget,
-    existing_hotels
-):
+def get_hotels_safely(destination, hotel_budget, existing_hotels):
 
+    # trip_search currently returns the raw Tavily response from hotel.py,
+    # so extract it here. If it is already a clean list, this function also
+    # handles that format.
     hotels = extract_hotels_for_app(
-        existing_hotels,
-        hotel_budget
+        existing_hotels, hotel_budget
     )
 
     if hotels:
         return hotels
 
+    # Fallback direct search.
     try:
-
-        fallback = search_hotels(
-            destination,
-            hotel_budget
+        fallback = search_hotels(destination, hotel_budget)
+        return extract_hotels_for_app(
+            fallback, hotel_budget
         )
-
-        hotels = extract_hotels_for_app(
-            fallback,
-            hotel_budget
-        )
-
-        return hotels
-
     except Exception as e:
-
-        st.warning(
-            f"Hotel search unavailable: {e}"
-        )
-
+        st.warning(f"Hotel search unavailable: {e}")
         return []
 
 
 def choose_best_hotel(hotels):
 
-    hotels = normalize_list(
-        hotels
-    )
-
+    hotels = normalize_list(hotels)
     priced = []
 
     for hotel in hotels:
-
-        if not isinstance(
-            hotel,
-            dict
-        ):
+        if not isinstance(hotel, dict):
             continue
-
-        price = hotel_price(
-            hotel
-        )
-
+        price = hotel_price(hotel)
         if price is not None:
-
-            priced.append(
-                (
-                    price,
-                    hotel
-                )
-            )
+            priced.append((price, hotel))
 
     if priced:
-
-        priced.sort(
-            key=lambda x: x[0]
-        )
-
+        priced.sort(key=lambda x: x[0])
         return priced[0][1]
 
-    if hotels:
-        return hotels[0]
-
-    return None
+    return hotels[0] if hotels else None
 
 
 # ============================================================
@@ -684,6 +536,10 @@ def show_hotel(hotel):
         hotel
     )
 
+    # --------------------------------------------------------
+    # RATING
+    # --------------------------------------------------------
+
     rating_value = hotel.get(
         "rating"
     )
@@ -695,8 +551,11 @@ def show_hotel(hotel):
         )
 
         if rating_number is not None:
+
             rating = f"{rating_number:.1f}"
+
         else:
+
             rating = safe_text(
                 rating_value
             )
@@ -704,6 +563,10 @@ def show_hotel(hotel):
     else:
 
         rating = "Not available"
+
+    # --------------------------------------------------------
+    # TAXES
+    # --------------------------------------------------------
 
     taxes_value = hotel.get(
         "taxes"
@@ -738,6 +601,10 @@ def show_hotel(hotel):
     url = hotel.get(
         "url"
     )
+
+    # --------------------------------------------------------
+    # HOTEL CARD
+    # --------------------------------------------------------
 
     with st.container(
         border=True
@@ -794,7 +661,7 @@ def show_hotel(hotel):
             st.link_button(
                 "🔗 View Hotel",
                 url,
-                use_container_width=True
+                width="stretch"
             )
 
 
@@ -802,219 +669,133 @@ def show_hotel(hotel):
 # TRANSPORT PRICE
 # ============================================================
 
-def transport_price(item):
+def _iter_transport_records(value):
+    """Yield every dictionary record from nested transport API responses."""
+    if isinstance(value, dict):
+        # Yield this object itself first.
+        yield value
+        for nested in value.values():
+            if isinstance(nested, (dict, list, tuple)):
+                yield from _iter_transport_records(nested)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            if isinstance(item, (dict, list, tuple)):
+                yield from _iter_transport_records(item)
 
-    if not isinstance(
-        item,
-        dict
-    ):
+
+def transport_price(item, _depth=0):
+
+    if not isinstance(item, dict) or _depth > 7:
         return None
 
-    # --------------------------------------------------------
-    # NORMAL PAY2ALL FIELDS
-    # --------------------------------------------------------
+    # Strong price fields first. This prevents unrelated numeric fields such as
+    # seat counts or IDs from being mistaken for a fare.
+    price_keys = [
+        "fare_min", "fareMin", "minFare", "min_fare",
+        "price_min", "priceMin", "lowestFare", "lowest_fare",
+        "minimumFare", "minimum_fare",
+        "price", "amount", "fare", "cost", "value"
+    ]
 
+    for key in price_keys:
+        value = item.get(key)
+
+        if isinstance(value, dict):
+            nested = transport_price(value, _depth + 1)
+            if nested is not None:
+                return nested
+        elif isinstance(value, (list, tuple)):
+            nums = []
+            for part in value:
+                if isinstance(part, dict):
+                    number = transport_price(part, _depth + 1)
+                else:
+                    number = get_number(part)
+                if number is not None and number >= 0:
+                    nums.append(number)
+            if nums:
+                return min(nums)
+        else:
+            number = get_number(value)
+            if number is not None and number >= 0:
+                return number
+
+    # Common nested API containers.
     for key in [
-        "fare_min",
-        "fareMin",
-        "price",
-        "amount",
-        "fare",
-        "cost",
-        "price_min",
-        "min_fare",
-        "minimum_fare",
+        "data", "result", "results", "details", "pricing",
+        "priceDetails", "price_details", "ticket", "ticketPrice",
+        "trip", "bus", "flight", "train"
     ]:
+        nested = item.get(key)
+        if isinstance(nested, dict):
+            number = transport_price(nested, _depth + 1)
+            if number is not None:
+                return number
+        elif isinstance(nested, (list, tuple)):
+            nums = []
+            for part in nested:
+                if isinstance(part, dict):
+                    number = transport_price(part, _depth + 1)
+                else:
+                    number = get_number(part)
+                if number is not None and number >= 0:
+                    nums.append(number)
+            if nums:
+                return min(nums)
 
-        value = get_number(
-            item.get(key)
-        )
-
-        if value is not None:
-            return value
-
-    # --------------------------------------------------------
-    # NESTED FARE OBJECT
-    # --------------------------------------------------------
-
-    fare_data = item.get(
-        "fare"
-    )
-
-    if isinstance(
-        fare_data,
-        dict
-    ):
-
-        for key in [
-            "min",
-            "minimum",
-            "fare_min",
-            "fareMin",
-            "price",
-            "amount",
-        ]:
-
-            value = get_number(
-                fare_data.get(key)
-            )
-
-            if value is not None:
-                return value
+    # Last resort: use the maximum fare only when no lower fare exists.
+    for key in ["fare_max", "fareMax", "maxFare", "max_fare"]:
+        number = get_number(item.get(key))
+        if number is not None and number >= 0:
+            return number
 
     return None
 
 
-# ============================================================
-# FIND CHEAPEST TRANSPORT
-# ============================================================
+def find_cheapest_transport(transport):
 
-def find_cheapest_transport(
-    transport
-):
-
-    if not isinstance(
-        transport,
-        dict
-    ):
+    if not isinstance(transport, dict):
         return None
 
     candidates = []
+    seen = set()
 
-    # ========================================================
-    # FLIGHTS
-    # ========================================================
+    for category, mode in [
+        ("flights", "✈️ Flight"),
+        ("trains", "🚆 Train"),
+        ("buses", "🚌 Bus"),
+    ]:
+        source = transport.get(category, [])
 
-    flights = normalize_list(
-        transport.get("flights")
-    )
+        for item in _iter_transport_records(source):
+            if not isinstance(item, dict):
+                continue
 
-    for flight in flights:
+            price = transport_price(item)
+            if price is None:
+                continue
 
-        if not isinstance(
-            flight,
-            dict
-        ):
-            continue
-
-        price = transport_price(
-            flight
-        )
-
-        if price is not None:
-
-            candidates.append(
-                {
-                    "mode": "✈️ Flight",
-                    "price": price,
-                    "data": flight
-                }
+            identifier = (
+                item.get("trip_id") or item.get("tripId") or
+                item.get("id") or item.get("flight_id") or
+                item.get("train_number") or item.get("bus_id")
             )
+            identity = (category, str(identifier) if identifier is not None else repr(item))
 
-    # ========================================================
-    # TRAINS
-    # ========================================================
+            if identity in seen:
+                continue
+            seen.add(identity)
 
-    trains = normalize_list(
-        transport.get("trains")
-    )
-
-    for train in trains:
-
-        if not isinstance(
-            train,
-            dict
-        ):
-            continue
-
-        price = transport_price(
-            train
-        )
-
-        if price is not None:
-
-            candidates.append(
-                {
-                    "mode": "🚆 Train",
-                    "price": price,
-                    "data": train
-                }
-            )
-
-    # ========================================================
-    # BUSES
-    # ========================================================
-
-    buses_raw = transport.get(
-        "buses"
-    )
-
-    buses = normalize_list(
-        buses_raw
-    )
-
-    # --------------------------------------------------------
-    # EXTRA SAFETY:
-    #
-    # If buses is still empty, try nested structures manually.
-    # --------------------------------------------------------
-
-    if not buses and isinstance(
-        buses_raw,
-        dict
-    ):
-
-        buses_data = buses_raw.get(
-            "data"
-        )
-
-        if isinstance(
-            buses_data,
-            dict
-        ):
-
-            buses = normalize_list(
-                buses_data
-            )
-
-    for bus in buses:
-
-        if not isinstance(
-            bus,
-            dict
-        ):
-            continue
-
-        price = transport_price(
-            bus
-        )
-
-        if price is not None:
-
-            candidates.append(
-                {
-                    "mode": "🚌 Bus",
-                    "price": price,
-                    "data": bus
-                }
-            )
-
-    # ========================================================
-    # NOTHING FOUND
-    # ========================================================
+            candidates.append({
+                "mode": mode,
+                "price": float(price),
+                "data": item
+            })
 
     if not candidates:
         return None
 
-    # ========================================================
-    # CHEAPEST FIRST
-    # ========================================================
-
-    candidates.sort(
-        key=lambda x: x["price"]
-    )
-
-    return candidates[0]
+    return min(candidates, key=lambda x: x["price"])
 
 
 # ============================================================
@@ -1313,7 +1094,7 @@ def display_places(
                         st.link_button(
                             "🔗 Explore Place",
                             url,
-                            use_container_width=True
+                            width="stretch"
                         )
 
 
@@ -1575,7 +1356,7 @@ with st.sidebar:
 
     plan_trip = st.button(
         "🚀 PLAN MY JOURNEY",
-        use_container_width=True
+        width="stretch"
     )
 
 

@@ -3,43 +3,155 @@
 # ============================================================
 
 from flight import search_flight
-from train import search_trains, get_station_code
+
+from train import (
+    search_trains,
+    get_station_code
+)
+
 from bus import search_bus
-from hotel import search_hotels
+
+from hotel import (
+    search_hotels,
+    extract_hotels_from_result,
+    remove_duplicates,
+    filter_by_budget,
+    sort_by_price
+)
+
 from places import search_places
+
+
+# ============================================================
+# AIRPORT CODES
+# ============================================================
+
+AIRPORT_CODES = {
+
+    "dehradun": "DED",
+
+    "delhi": "DEL",
+    "new delhi": "DEL",
+
+    "mumbai": "BOM",
+
+    "goa": "GOI",
+    "madgaon": "GOI",
+
+    "pune": "PNQ",
+
+    "ahmedabad": "AMD",
+
+    "jaipur": "JAI",
+
+    "lucknow": "LKO",
+
+    "varanasi": "VNS",
+
+    "kolkata": "CCU",
+
+    "patna": "PAT",
+
+    "bhopal": "BHO",
+
+    "indore": "IDR",
+
+    "amritsar": "ATQ",
+
+    "chandigarh": "IXC",
+
+    "agra": "AGR",
+
+    "kanpur": "KNU"
+}
+
+
+# ============================================================
+# GET AIRPORT CODE
+# ============================================================
+
+def get_airport_code(city):
+
+    if not city:
+        return None
+
+    city = str(city).lower().strip()
+
+    return AIRPORT_CODES.get(city)
 
 
 # ============================================================
 # FLIGHTS
 # ============================================================
 
-def get_flights(origin, destination):
+def get_flights(
+    origin,
+    destination
+):
 
     print("\n" + "=" * 70)
     print("✈️ SEARCHING FLIGHTS")
     print("=" * 70)
 
-    print(f"✈️ Route: {origin} → {destination}")
+    origin_code = get_airport_code(
+        origin
+    )
+
+    destination_code = get_airport_code(
+        destination
+    )
+
+    if not origin_code:
+
+        print(
+            f"⚠️ Airport code not found for: "
+            f"{origin}"
+        )
+
+        return []
+
+    if not destination_code:
+
+        print(
+            f"⚠️ Airport code not found for: "
+            f"{destination}"
+        )
+
+        return []
+
+    print(
+        f"✈️ Route: "
+        f"{origin_code} → {destination_code}"
+    )
 
     try:
 
-        # Send CITY NAMES directly.
-        # flight.py converts:
-        # Goa -> GOI
-        # Delhi -> DEL
-        # Mumbai -> BOM
-        # Dehradun -> DED
-
         flights = search_flight(
-            origin,
-            destination
+            origin_code,
+            destination_code
         )
 
-        return flights or []
+        if not flights:
+
+            print(
+                "⚠️ No flights found."
+            )
+
+            return []
+
+        print(
+            f"✅ Flights received: "
+            f"{len(flights)}"
+        )
+
+        return flights
 
     except Exception as e:
 
-        print("\n❌ Flight search failed:")
+        print(
+            "\n❌ Flight search failed:"
+        )
+
         print(e)
 
         return []
@@ -49,45 +161,48 @@ def get_flights(origin, destination):
 # TRAINS
 # ============================================================
 
-def get_trains(origin, destination, travel_date):
+def get_trains(
+    origin,
+    destination,
+    travel_date
+):
 
     print("\n" + "=" * 70)
     print("🚆 SEARCHING TRAINS")
     print("=" * 70)
 
+    origin_code = get_station_code(
+        origin
+    )
+
+    destination_code = get_station_code(
+        destination
+    )
+
+    if not origin_code:
+
+        print(
+            f"⚠️ Railway station code "
+            f"not found for: {origin}"
+        )
+
+        return []
+
+    if not destination_code:
+
+        print(
+            f"⚠️ Railway station code "
+            f"not found for: {destination}"
+        )
+
+        return []
+
     print(
-        f"🚆 Route: {origin} → {destination}"
+        f"🚆 Route: "
+        f"{origin_code} → {destination_code}"
     )
 
     try:
-
-        # train.py already accepts city names
-
-        origin_code = get_station_code(origin)
-        destination_code = get_station_code(destination)
-
-        if not origin_code:
-
-            print(
-                f"⚠️ Railway station code not found "
-                f"for: {origin}"
-            )
-
-            return []
-
-        if not destination_code:
-
-            print(
-                f"⚠️ Railway station code not found "
-                f"for: {destination}"
-            )
-
-            return []
-
-        print(
-            f"🚆 Station Route: "
-            f"{origin_code} → {destination_code}"
-        )
 
         trains = search_trains(
             origin_code,
@@ -95,11 +210,27 @@ def get_trains(origin, destination, travel_date):
             travel_date
         )
 
-        return trains or []
+        if not trains:
+
+            print(
+                "⚠️ No trains found."
+            )
+
+            return []
+
+        print(
+            f"✅ Trains received: "
+            f"{len(trains)}"
+        )
+
+        return trains
 
     except Exception as e:
 
-        print("\n❌ Train search failed:")
+        print(
+            "\n❌ Train search failed:"
+        )
+
         print(e)
 
         return []
@@ -109,19 +240,17 @@ def get_trains(origin, destination, travel_date):
 # BUSES
 # ============================================================
 
-def get_buses(origin, destination, travel_date):
+def get_buses(
+    origin,
+    destination,
+    travel_date
+):
 
     print("\n" + "=" * 70)
     print("🚌 SEARCHING BUSES")
     print("=" * 70)
 
-    print(
-        f"🚌 Route: {origin} → {destination}"
-    )
-
     try:
-
-        # bus.py accepts city names directly
 
         buses = search_bus(
             source=origin,
@@ -129,21 +258,40 @@ def get_buses(origin, destination, travel_date):
             travel_date=travel_date
         )
 
-        return buses or []
+        if not buses:
+
+            print(
+                "⚠️ No buses found."
+            )
+
+            return []
+
+        print(
+            f"✅ Buses received: "
+            f"{len(buses)}"
+        )
+
+        return buses
 
     except Exception as e:
 
-        print("\n❌ Bus search failed:")
+        print(
+            "\n❌ Bus search failed:"
+        )
+
         print(e)
 
         return []
 
 
 # ============================================================
-# HOTELS
+# HOTEL SEARCH + CLEANING
 # ============================================================
 
-def get_hotels(destination, hotel_budget):
+def get_hotels(
+    destination,
+    hotel_budget
+):
 
     print("\n" + "=" * 70)
     print("🏨 SEARCHING HOTELS")
@@ -159,38 +307,304 @@ def get_hotels(destination, hotel_budget):
 
     try:
 
-        # hotel.py receives CITY NAME directly
+        # ----------------------------------------------------
+        # STEP 1
+        # Tavily hotel search
+        # ----------------------------------------------------
 
-        hotels = search_hotels(
+        raw_response = search_hotels(
             destination,
             hotel_budget
         )
 
-        if not hotels:
+        if not raw_response:
 
             print(
-                "⚠️ No hotels found."
+                "⚠️ No hotel response received."
+            )
+
+            return []
+
+        # ----------------------------------------------------
+        # IMPORTANT
+        #
+        # search_hotels() returns a RAW Tavily dictionary.
+        #
+        # Example:
+        #
+        # {
+        #     "query": "...",
+        #     "results": [...]
+        # }
+        #
+        # Never do:
+        #
+        # raw_response[:5]
+        #
+        # because raw_response is a dictionary.
+        # That causes:
+        #
+        # slice(None, 5, None)
+        # ----------------------------------------------------
+
+        if not isinstance(
+            raw_response,
+            dict
+        ):
+
+            print(
+                "⚠️ Unexpected hotel response type:"
+            )
+
+            print(
+                type(raw_response)
+            )
+
+            return []
+
+        raw_results = raw_response.get(
+            "results",
+            []
+        )
+
+        if not isinstance(
+            raw_results,
+            list
+        ):
+
+            print(
+                "⚠️ Hotel results are not a list."
             )
 
             return []
 
         print(
-            f"✅ Hotels received: {len(hotels)}"
+            f"🔎 Tavily results received: "
+            f"{len(raw_results)}"
         )
 
-        # Print first few results for debugging
+        # ----------------------------------------------------
+        # STEP 2
+        # Extract hotels from every Tavily result
+        # ----------------------------------------------------
 
-        for i, hotel in enumerate(
-            hotels[:5],
-            1
-        ):
+        all_hotels = []
+
+        for result in raw_results:
+
+            if not isinstance(
+                result,
+                dict
+            ):
+                continue
+
+            try:
+
+                extracted = (
+                    extract_hotels_from_result(
+                        result
+                    )
+                )
+
+                if extracted:
+
+                    all_hotels.extend(
+                        extracted
+                    )
+
+            except Exception as e:
+
+                print(
+                    f"⚠️ Hotel extraction skipped: {e}"
+                )
+
+        print(
+            f"📊 Raw hotel entries found: "
+            f"{len(all_hotels)}"
+        )
+
+        if not all_hotels:
 
             print(
-                f"\n🏨 Hotel {i}:"
+                "⚠️ No valid hotel records extracted."
+            )
+
+            return []
+
+        # ----------------------------------------------------
+        # STEP 3
+        # Remove duplicate hotels
+        # ----------------------------------------------------
+
+        try:
+
+            all_hotels = remove_duplicates(
+                all_hotels
+            )
+
+        except Exception as e:
+
+            print(
+                f"⚠️ Duplicate removal skipped: {e}"
+            )
+
+        print(
+            f"🧹 After duplicate removal: "
+            f"{len(all_hotels)}"
+        )
+
+        # ----------------------------------------------------
+        # STEP 4
+        # Filter according to budget
+        # ----------------------------------------------------
+
+        try:
+
+            all_hotels = filter_by_budget(
+                all_hotels,
+                hotel_budget
+            )
+
+        except Exception as e:
+
+            print(
+                f"⚠️ Budget filtering error: {e}"
+            )
+
+            # Safe manual fallback
+
+            filtered = []
+
+            for hotel in all_hotels:
+
+                if not isinstance(
+                    hotel,
+                    dict
+                ):
+                    continue
+
+                price = hotel.get(
+                    "price"
+                )
+
+                if price is None:
+                    continue
+
+                try:
+
+                    if float(price) <= float(
+                        hotel_budget
+                    ):
+
+                        filtered.append(
+                            hotel
+                        )
+
+                except Exception:
+
+                    continue
+
+            all_hotels = filtered
+
+        print(
+            f"💰 Hotels within "
+            f"₹{hotel_budget}: "
+            f"{len(all_hotels)}"
+        )
+
+        # ----------------------------------------------------
+        # STEP 5
+        # Sort by cheapest price
+        # ----------------------------------------------------
+
+        try:
+
+            all_hotels = sort_by_price(
+                all_hotels
+            )
+
+        except Exception as e:
+
+            print(
+                f"⚠️ Sorting error: {e}"
+            )
+
+            # Safe manual sort
+
+            def hotel_sort_key(
+                hotel
+            ):
+
+                if not isinstance(
+                    hotel,
+                    dict
+                ):
+
+                    return (
+                        True,
+                        float("inf")
+                    )
+
+                price = hotel.get(
+                    "price"
+                )
+
+                try:
+
+                    price = float(
+                        price
+                    )
+
+                    return (
+                        False,
+                        price
+                    )
+
+                except Exception:
+
+                    return (
+                        True,
+                        float("inf")
+                    )
+
+            all_hotels.sort(
+                key=hotel_sort_key
+            )
+
+        # ----------------------------------------------------
+        # STEP 6
+        # Final result
+        # ----------------------------------------------------
+
+        print(
+            f"✅ Final hotels ready: "
+            f"{len(all_hotels)}"
+        )
+
+        # Print a small preview safely.
+        # IMPORTANT: slicing is done only on a LIST.
+
+        preview = all_hotels[
+            :5
+        ]
+
+        for index, hotel in enumerate(
+            preview,
+            start=1
+        ):
+
+            if not isinstance(
+                hotel,
+                dict
+            ):
+                continue
+
+            print(
+                f"\n🏨 HOTEL {index}"
             )
 
             print(
-                "Name:",
+                "Name     :",
                 hotel.get(
                     "name",
                     "N/A"
@@ -198,30 +612,40 @@ def get_hotels(destination, hotel_budget):
             )
 
             print(
-                "Price:",
+                "Location :",
                 hotel.get(
-                    "price",
-                    hotel.get(
-                        "price_per_night",
-                        "N/A"
-                    )
+                    "location",
+                    "N/A"
                 )
             )
 
             print(
-                "Rating:",
+                "Price    :",
+                hotel.get(
+                    "price",
+                    "N/A"
+                )
+            )
+
+            print(
+                "Rating   :",
                 hotel.get(
                     "rating",
                     "N/A"
                 )
             )
 
-        return hotels
+        return all_hotels
 
     except Exception as e:
 
-        print("\n❌ Hotel search failed:")
-        print(e)
+        print(
+            "\n❌ Hotel search failed:"
+        )
+
+        print(
+            repr(e)
+        )
 
         return []
 
@@ -230,23 +654,16 @@ def get_hotels(destination, hotel_budget):
 # PLACES
 # ============================================================
 
-def get_places(destination, interests):
+def get_places(
+    destination,
+    interests
+):
 
     print("\n" + "=" * 70)
     print("📍 SEARCHING PLACES")
     print("=" * 70)
 
-    print(
-        f"📍 Destination: {destination}"
-    )
-
-    print(
-        f"🎯 Interest: {interests}"
-    )
-
     try:
-
-        # places.py receives city name
 
         places = search_places(
             destination,
@@ -262,14 +679,18 @@ def get_places(destination, interests):
             return []
 
         print(
-            f"✅ Places found: {len(places)}"
+            f"✅ Places received: "
+            f"{len(places)}"
         )
 
         return places
 
     except Exception as e:
 
-        print("\n❌ Places search failed:")
+        print(
+            "\n❌ Places search failed:"
+        )
+
         print(e)
 
         return []
@@ -290,28 +711,33 @@ def search_trip(
     print("\n")
 
     print("=" * 70)
-    print("🚀 TRIPPILOT COMPLETE TRIP SEARCH")
+    print(
+        "🚀 TRIPPILOT COMPLETE TRIP SEARCH"
+    )
     print("=" * 70)
 
     print(
-        f"📍 Route: {origin} → {destination}"
+        f"📍 Route: "
+        f"{origin} → {destination}"
     )
 
     print(
-        f"📅 Travel Date: {travel_date}"
+        f"📅 Travel Date: "
+        f"{travel_date}"
     )
 
     print(
-        f"💰 Hotel Budget: ₹{hotel_budget}"
+        f"💰 Hotel Budget: "
+        f"₹{hotel_budget}"
     )
 
     print(
-        f"🎯 Interests: {interests}"
+        f"🎯 Interests: "
+        f"{interests}"
     )
-
 
     # ========================================================
-    # FLIGHTS
+    # TRANSPORT
     # ========================================================
 
     flights = get_flights(
@@ -319,28 +745,17 @@ def search_trip(
         destination
     )
 
-
-    # ========================================================
-    # TRAINS
-    # ========================================================
-
     trains = get_trains(
         origin,
         destination,
         travel_date
     )
 
-
-    # ========================================================
-    # BUSES
-    # ========================================================
-
     buses = get_buses(
         origin,
         destination,
         travel_date
     )
-
 
     # ========================================================
     # HOTELS
@@ -351,7 +766,6 @@ def search_trip(
         hotel_budget
     )
 
-
     # ========================================================
     # PLACES
     # ========================================================
@@ -360,7 +774,6 @@ def search_trip(
         destination,
         interests
     )
-
 
     # ========================================================
     # FINAL TRIP DATA
@@ -375,6 +788,7 @@ def search_trip(
             "destination": destination,
 
             "travel_date": travel_date
+
         },
 
         "transport": {
@@ -384,44 +798,14 @@ def search_trip(
             "trains": trains,
 
             "buses": buses
+
         },
 
         "hotels": hotels,
 
         "places": places
+
     }
-
-
-    # ========================================================
-    # DEBUG SUMMARY
-    # ========================================================
-
-    print("\n" + "=" * 70)
-    print("📊 SEARCH RESULTS")
-    print("=" * 70)
-
-    print(
-        f"✈️ Flights : {len(flights)}"
-    )
-
-    print(
-        f"🚆 Trains  : {len(trains)}"
-    )
-
-    print(
-        f"🚌 Buses   : {len(buses)}"
-    )
-
-    print(
-        f"🏨 Hotels  : {len(hotels)}"
-    )
-
-    print(
-        f"📍 Places  : {len(places)}"
-    )
-
-    print("=" * 70)
-
 
     return trip_data
 
@@ -430,18 +814,21 @@ def search_trip(
 # DISPLAY SUMMARY
 # ============================================================
 
-def display_summary(trip_data):
+def display_summary(
+    trip_data
+):
 
     print("\n")
 
     print("=" * 70)
-    print("📊 TRIPPILOT SEARCH SUMMARY")
+    print(
+        "📊 TRIPPILOT SEARCH SUMMARY"
+    )
     print("=" * 70)
 
-
-    # ========================================================
+    # --------------------------------------------------------
     # ROUTE
-    # ========================================================
+    # --------------------------------------------------------
 
     route = trip_data.get(
         "route",
@@ -463,20 +850,19 @@ def display_summary(trip_data):
         "N/A"
     )
 
-
     print(
         f"\n📍 Route: "
         f"{origin} → {destination}"
     )
 
     print(
-        f"📅 Date: {travel_date}"
+        f"📅 Date: "
+        f"{travel_date}"
     )
 
-
-    # ========================================================
+    # --------------------------------------------------------
     # TRANSPORT
-    # ========================================================
+    # --------------------------------------------------------
 
     transport = trip_data.get(
         "transport",
@@ -498,87 +884,58 @@ def display_summary(trip_data):
         []
     )
 
-
     print("\n🚗 TRANSPORT")
 
     print(
-        f"✈️ Flights : {len(flights)}"
+        f"✈️ Flights : "
+        f"{len(flights)}"
     )
 
     print(
-        f"🚆 Trains  : {len(trains)}"
+        f"🚆 Trains  : "
+        f"{len(trains)}"
     )
 
     print(
-        f"🚌 Buses   : {len(buses)}"
+        f"🚌 Buses   : "
+        f"{len(buses)}"
     )
 
-
-    # ========================================================
+    # --------------------------------------------------------
     # HOTELS
-    # ========================================================
+    # --------------------------------------------------------
 
     hotels = trip_data.get(
         "hotels",
         []
     )
 
-
     print("\n🏨 HOTELS")
 
     print(
-        f"Hotels found: {len(hotels)}"
+        f"Hotels found: "
+        f"{len(hotels)}"
     )
 
-
-    for i, hotel in enumerate(
-        hotels[:5],
-        1
-    ):
-
-        print(
-            f"\n🏨 {i}. "
-            f"{hotel.get('name', 'N/A')}"
-        )
-
-        print(
-            "   Price:",
-            hotel.get(
-                "price",
-                hotel.get(
-                    "price_per_night",
-                    "N/A"
-                )
-            )
-        )
-
-        print(
-            "   Rating:",
-            hotel.get(
-                "rating",
-                "N/A"
-            )
-        )
-
-
-    # ========================================================
+    # --------------------------------------------------------
     # PLACES
-    # ========================================================
+    # --------------------------------------------------------
 
     places = trip_data.get(
         "places",
         []
     )
 
-
     print("\n📍 PLACES")
 
     print(
-        f"Places found: {len(places)}"
+        f"Places found: "
+        f"{len(places)}"
     )
 
-
-    print("\n" + "=" * 70)
+    print(
+        "\n" + "=" * 70
+    )
 
 
 # ============================================================
@@ -587,9 +944,13 @@ def display_summary(trip_data):
 
 if __name__ == "__main__":
 
-    print("\n🚀 TripPilot")
-    print("=" * 50)
+    print(
+        "\n🚀 TripPilot"
+    )
 
+    print(
+        "=" * 50
+    )
 
     # --------------------------------------------------------
     # USER INPUT
@@ -599,16 +960,13 @@ if __name__ == "__main__":
         "Enter starting city: "
     ).strip()
 
-
     destination = input(
         "Enter destination city: "
     ).strip()
 
-
     travel_date = input(
         "Enter travel date (YYYY-MM-DD): "
     ).strip()
-
 
     hotel_budget = float(
         input(
@@ -616,12 +974,10 @@ if __name__ == "__main__":
         ).strip()
     )
 
-
     interests = input(
         "Enter your interests "
         "(nature, adventure, beaches, etc.): "
     ).strip()
-
 
     # --------------------------------------------------------
     # SEARCH EVERYTHING
@@ -638,8 +994,8 @@ if __name__ == "__main__":
         hotel_budget,
 
         interests
-    )
 
+    )
 
     # --------------------------------------------------------
     # DISPLAY RESULT
@@ -649,13 +1005,20 @@ if __name__ == "__main__":
         trip_data
     )
 
-
     # --------------------------------------------------------
     # COMPLETED
     # --------------------------------------------------------
 
     print("\n")
 
-    print("=" * 70)
-    print("✅ TRIP SEARCH COMPLETED")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+
+    print(
+        "✅ TRIP SEARCH COMPLETED"
+    )
+
+    print(
+        "=" * 70
+    )
